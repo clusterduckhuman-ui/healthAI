@@ -1,0 +1,6 @@
+{
+  "name": "ApexPulse",
+  "description": "AI Trainer for personalized workouts, real-time biometric tracking, gym form feedback, instant food calorie scanning, meal prep tailored to equipment & allergies, HIIT sessions, and social community.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

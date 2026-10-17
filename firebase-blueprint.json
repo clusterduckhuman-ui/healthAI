@@ -1,0 +1,124 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with preferences, goals, and subscription status",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The unique user ID" },
+        "displayName": { "type": "string", "description": "Display name of the user" },
+        "email": { "type": "string", "description": "User email address" },
+        "goal": { "type": "string", "description": "Fitness goal" },
+        "fitnessLevel": { "type": "string", "description": "Fitness experience level" },
+        "allergies": { "type": "array", "description": "Dietary restrictions and allergies" },
+        "cookingEquipment": { "type": "array", "description": "Available cooking equipment" },
+        "isVip": { "type": "boolean", "description": "VIP subscription status" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp via serverTimestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Update timestamp via serverTimestamp" }
+      },
+      "required": ["userId", "displayName", "goal", "fitnessLevel", "allergies", "cookingEquipment", "isVip", "createdAt"]
+    },
+    "BiometricLog": {
+      "title": "BiometricLog",
+      "description": "Wearable synced biometric telemetry log",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "User ID" },
+        "heartRateBpm": { "type": "integer", "description": "Current heart rate in bpm" },
+        "recoveryScore": { "type": "integer", "description": "Recovery score percentage (0-100)" },
+        "strainScore": { "type": "number", "description": "Day strain score (0.0 - 21.0)" },
+        "hrvMs": { "type": "integer", "description": "Heart rate variability in ms" },
+        "activeCaloriesBurned": { "type": "integer", "description": "Active calories burned" },
+        "steps": { "type": "integer", "description": "Daily step count" },
+        "sleepScore": { "type": "integer", "description": "Sleep score (0-100)" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp via serverTimestamp" }
+      },
+      "required": ["userId", "heartRateBpm", "recoveryScore", "strainScore", "hrvMs", "activeCaloriesBurned", "steps", "sleepScore", "createdAt"]
+    },
+    "FoodLog": {
+      "title": "FoodLog",
+      "description": "Scanned or manually logged meal nutrition record",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "User ID" },
+        "foodName": { "type": "string", "description": "Name of food item" },
+        "calories": { "type": "integer", "description": "Calories count" },
+        "proteinGrams": { "type": "integer", "description": "Protein in grams" },
+        "carbsGrams": { "type": "integer", "description": "Carbohydrates in grams" },
+        "fatGrams": { "type": "integer", "description": "Fat in grams" },
+        "confidencePercent": { "type": "integer", "description": "Scanning model confidence" },
+        "detectedAllergens": { "type": "array", "description": "Identified allergens" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp via serverTimestamp" }
+      },
+      "required": ["userId", "foodName", "calories", "proteinGrams", "carbsGrams", "fatGrams", "createdAt"]
+    },
+    "WorkoutLog": {
+      "title": "WorkoutLog",
+      "description": "Completed workout session log",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "User ID" },
+        "title": { "type": "string", "description": "Workout title" },
+        "durationMinutes": { "type": "integer", "description": "Workout duration in minutes" },
+        "caloriesBurned": { "type": "integer", "description": "Estimated calories burned" },
+        "rpeScore": { "type": "integer", "description": "Rate of perceived exertion (1-10)" },
+        "strainGenerated": { "type": "number", "description": "Strain metric accumulated" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp via serverTimestamp" }
+      },
+      "required": ["userId", "title", "durationMinutes", "caloriesBurned", "rpeScore", "createdAt"]
+    },
+    "CommunityPost": {
+      "title": "CommunityPost",
+      "description": "Social feed workout announcement or check-in",
+      "type": "object",
+      "properties": {
+        "postId": { "type": "string", "description": "Unique post ID" },
+        "userId": { "type": "string", "description": "Author user ID" },
+        "userName": { "type": "string", "description": "Author display name" },
+        "content": { "type": "string", "description": "Message or milestone text" },
+        "workoutType": { "type": "string", "description": "Category of workout or meal" },
+        "metric": { "type": "string", "description": "Key milestone metric (e.g. 520 kcal)" },
+        "likesCount": { "type": "integer", "description": "Total like counter" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp via serverTimestamp" }
+      },
+      "required": ["postId", "userId", "userName", "content", "workoutType", "metric", "likesCount", "createdAt"]
+    },
+    "PostLike": {
+      "title": "PostLike",
+      "description": "User like on a community post",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "User ID of liker" },
+        "postId": { "type": "string", "description": "ID of liked post" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp via serverTimestamp" }
+      },
+      "required": ["userId", "postId", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User profile, fitness targets, equipment, and subscription preferences"
+    },
+    "/users/{userId}/biometrics/{biometricId}": {
+      "schema": { "$ref": "#/entities/BiometricLog" },
+      "description": "User biometric data points from wearable sync"
+    },
+    "/users/{userId}/food_logs/{logId}": {
+      "schema": { "$ref": "#/entities/FoodLog" },
+      "description": "User scanned food logs and macro breakdowns"
+    },
+    "/users/{userId}/workouts/{workoutId}": {
+      "schema": { "$ref": "#/entities/WorkoutLog" },
+      "description": "User workout history and exertion logs"
+    },
+    "/community_posts/{postId}": {
+      "schema": { "$ref": "#/entities/CommunityPost" },
+      "description": "Shared social activity feed posts"
+    },
+    "/community_posts/{postId}/likes/{userId}": {
+      "schema": { "$ref": "#/entities/PostLike" },
+      "description": "Subcollection tracking likes per post per user"
+    }
+  }
+}

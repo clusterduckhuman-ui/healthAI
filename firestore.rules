@@ -1,0 +1,193 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Hardened global helpers
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Domain validation helpers
+    function isValidUserProfile(data) {
+      return data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100 &&
+             data.goal is string && data.goal.size() <= 100 &&
+             data.fitnessLevel is string && data.fitnessLevel.size() <= 100 &&
+             data.isVip is bool &&
+             data.allergies is list && data.allergies.size() <= 20 &&
+             data.cookingEquipment is list && data.cookingEquipment.size() <= 20 &&
+             (!('email' in data) || data.email == null || (data.email is string && data.email.size() <= 150));
+    }
+
+    function isValidBiometricLog(data) {
+      return data.heartRateBpm is int && data.heartRateBpm >= 30 && data.heartRateBpm <= 250 &&
+             data.recoveryScore is int && data.recoveryScore >= 0 && data.recoveryScore <= 100 &&
+             data.strainScore is number && data.strainScore >= 0 && data.strainScore <= 25 &&
+             data.hrvMs is int && data.hrvMs >= 0 && data.hrvMs <= 300 &&
+             data.activeCaloriesBurned is int && data.activeCaloriesBurned >= 0 &&
+             data.steps is int && data.steps >= 0 &&
+             data.sleepScore is int && data.sleepScore >= 0 && data.sleepScore <= 100;
+    }
+
+    function isValidFoodLog(data) {
+      return data.foodName is string && data.foodName.size() >= 1 && data.foodName.size() <= 150 &&
+             data.calories is int && data.calories >= 0 &&
+             data.proteinGrams is int && data.proteinGrams >= 0 &&
+             data.carbsGrams is int && data.carbsGrams >= 0 &&
+             data.fatGrams is int && data.fatGrams >= 0 &&
+             (!('confidencePercent' in data) || (data.confidencePercent is int && data.confidencePercent >= 0 && data.confidencePercent <= 100)) &&
+             (!('detectedAllergens' in data) || (data.detectedAllergens is list && data.detectedAllergens.size() <= 20));
+    }
+
+    function isValidWorkoutLog(data) {
+      return data.title is string && data.title.size() >= 1 && data.title.size() <= 150 &&
+             data.durationMinutes is int && data.durationMinutes >= 1 && data.durationMinutes <= 600 &&
+             data.caloriesBurned is int && data.caloriesBurned >= 0 &&
+             data.rpeScore is int && data.rpeScore >= 1 && data.rpeScore <= 10 &&
+             (!('strainGenerated' in data) || (data.strainGenerated is number && data.strainGenerated >= 0));
+    }
+
+    function isValidCommunityPost(data) {
+      return data.postId is string && data.postId.size() <= 128 &&
+             data.userName is string && data.userName.size() <= 100 &&
+             data.content is string && data.content.size() <= 500 &&
+             data.workoutType is string && data.workoutType.size() <= 50 &&
+             data.metric is string && data.metric.size() <= 50 &&
+             data.likesCount is int && data.likesCount >= 0;
+    }
+
+    function isValidPostLike(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.postId is string && data.postId.size() <= 128;
+    }
+
+    // User profile documents
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if false;
+
+      allow create: if isOwner(userId) && isValidId(userId) &&
+                       incoming().userId == userId &&
+                       incoming().keys().hasAll(['userId', 'displayName', 'goal', 'fitnessLevel', 'allergies', 'cookingEquipment', 'isVip', 'createdAt']) &&
+                       incoming().keys().hasOnly(['userId', 'displayName', 'email', 'goal', 'fitnessLevel', 'allergies', 'cookingEquipment', 'isVip', 'createdAt', 'updatedAt']) &&
+                       incoming().createdAt is timestamp &&
+                       incoming().createdAt <= request.time &&
+                       isValidUserProfile(incoming());
+
+      allow update: if isOwner(userId) && isValidId(userId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp &&
+                       incoming().updatedAt <= request.time &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'email', 'goal', 'fitnessLevel', 'allergies', 'cookingEquipment', 'isVip', 'updatedAt']);
+
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      // Biometrics subcollection
+      match /biometrics/{biometricId} {
+        allow get, list: if isOwner(userId) && isValidId(userId);
+        allow create: if isOwner(userId) && isValidId(userId) && isValidId(biometricId) &&
+                         incoming().userId == userId &&
+                         incoming().keys().hasAll(['userId', 'heartRateBpm', 'recoveryScore', 'strainScore', 'hrvMs', 'activeCaloriesBurned', 'steps', 'sleepScore', 'createdAt']) &&
+                         incoming().keys().hasOnly(['userId', 'heartRateBpm', 'recoveryScore', 'strainScore', 'hrvMs', 'activeCaloriesBurned', 'steps', 'sleepScore', 'createdAt']) &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         isValidBiometricLog(incoming());
+        allow update: if false;
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(biometricId);
+      }
+
+      // Food logs subcollection
+      match /food_logs/{logId} {
+        allow get, list: if isOwner(userId) && isValidId(userId);
+        allow create: if isOwner(userId) && isValidId(userId) && isValidId(logId) &&
+                         incoming().userId == userId &&
+                         incoming().keys().hasAll(['userId', 'foodName', 'calories', 'proteinGrams', 'carbsGrams', 'fatGrams', 'createdAt']) &&
+                         incoming().keys().hasOnly(['userId', 'foodName', 'calories', 'proteinGrams', 'carbsGrams', 'fatGrams', 'confidencePercent', 'detectedAllergens', 'createdAt']) &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         isValidFoodLog(incoming());
+        allow update, delete: if isOwner(userId) && isValidId(userId) && isValidId(logId);
+      }
+
+      // Workouts subcollection
+      match /workouts/{workoutId} {
+        allow get, list: if isOwner(userId) && isValidId(userId);
+        allow create: if isOwner(userId) && isValidId(userId) && isValidId(workoutId) &&
+                         incoming().userId == userId &&
+                         incoming().keys().hasAll(['userId', 'title', 'durationMinutes', 'caloriesBurned', 'rpeScore', 'createdAt']) &&
+                         incoming().keys().hasOnly(['userId', 'title', 'durationMinutes', 'caloriesBurned', 'rpeScore', 'strainGenerated', 'createdAt']) &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         isValidWorkoutLog(incoming());
+        allow update, delete: if isOwner(userId) && isValidId(userId) && isValidId(workoutId);
+      }
+    }
+
+    // Community activity feed
+    match /community_posts/{postId} {
+      allow get: if isSignedIn() && isValidId(postId);
+      allow list: if isSignedIn();
+
+      allow create: if isSignedIn() && isValidId(postId) &&
+                       incoming().postId == postId &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().likesCount == 0 &&
+                       incoming().keys().hasAll(['postId', 'userId', 'userName', 'content', 'workoutType', 'metric', 'likesCount', 'createdAt']) &&
+                       incoming().keys().hasOnly(['postId', 'userId', 'userName', 'content', 'workoutType', 'metric', 'likesCount', 'createdAt']) &&
+                       incoming().createdAt is timestamp &&
+                       incoming().createdAt <= request.time &&
+                       isValidCommunityPost(incoming());
+
+      allow update: if isSignedIn() && isValidId(postId) && (
+                       (isOwner(existing().userId) &&
+                        incoming().userId == existing().userId &&
+                        incoming().createdAt == existing().createdAt &&
+                        isValidCommunityPost(incoming()) &&
+                        incoming().diff(existing()).affectedKeys().hasOnly(['content', 'metric'])) ||
+                       (incoming().diff(existing()).affectedKeys().hasOnly(['likesCount']) &&
+                        incoming().likesCount >= 0 &&
+                        incoming().userId == existing().userId &&
+                        incoming().createdAt == existing().createdAt &&
+                        isValidCommunityPost(incoming()))
+                     );
+
+      allow delete: if isSignedIn() && isOwner(existing().userId) && isValidId(postId);
+
+      // Post likes subcollection
+      match /likes/{likerId} {
+        allow get, list: if isSignedIn() && isValidId(postId);
+        allow create: if isOwner(likerId) && isValidId(postId) && isValidId(likerId) &&
+                         incoming().userId == likerId &&
+                         incoming().postId == postId &&
+                         incoming().keys().hasAll(['userId', 'postId', 'createdAt']) &&
+                         incoming().keys().hasOnly(['userId', 'postId', 'createdAt']) &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         isValidPostLike(incoming());
+        allow delete: if isOwner(likerId) && isValidId(postId) && isValidId(likerId);
+      }
+    }
+  }
+}
